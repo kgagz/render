@@ -59,9 +59,7 @@ function init() {
         for ( let y = 0; y < size; y ++ ) {
 
             for ( let x = 0; x < size; x ++ ) {
-
-                const d = 1.0 - vector.set( x, y, z ).subScalar( size / 2 ).divideScalar( size ).length();
-                data[ i ] = 128 * d * d;
+                data[ i ] = 128;
                 i ++;
 
             }
