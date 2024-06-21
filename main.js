@@ -14,37 +14,40 @@ function init() {
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.setAnimationLoop( animate );
     document.body.appendChild( renderer.domElement );
-
+    
     scene = new THREE.Scene();
-
+    console.log('Scene initialized.');
     camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.1, 100 );
     camera.position.set( 0, 0, 1.5 );
-
+    console.log('Camera initialized.');
     new OrbitControls( camera, renderer.domElement );
+    console.log('Orbit Controls initialized.');
 
-    // Sky
+    /*// Texture
+    const headArrayBuffer = fetch('head_256x256x109head_256x256x109.bin').arrayBuffer();
+    const headTexture = new Uint8Array(headArrayBuffer);
 
-    const canvas = document.createElement( 'canvas' );
-    canvas.width = 1;
-    canvas.height = 32;
 
-    const context = canvas.getContext( '2d' );
-    const gradient = context.createLinearGradient( 0, 0, 32, 32 );
-    gradient.addColorStop( 0.0, '#ff0000' );
-    gradient.addColorStop( 0.5, '#ffa500' );
-    gradient.addColorStop( 1.0, '#ffff00' );
-    context.fillStyle = gradient;
-    context.fillRect( 0, 0, 1, 32 );
-
-    const skyMap = new THREE.CanvasTexture( canvas );
-    skyMap.colorSpace = THREE.SRGBColorSpace;
-
-    const sky = new THREE.Mesh(
-        new THREE.SphereGeometry( 10 ),
-        new THREE.MeshBasicMaterial( { map: skyMap, side: THREE.BackSide } )
-    );
-    scene.add( sky );
-
+    const texture = new THREE.Data3DTexture(
+        headTexture, // The data values stored in the pixels of the texture.
+        256, // Width of texture.
+        256, // Height of texture.
+        109 // Depth of texture.
+      );
+      
+      texture.format = THREE.RedFormat; // Our texture has only one channel (red).
+      texture.type = THREE.UnsignedByteType; // The data type is 8 bit unsigned integer.
+      texture.minFilter = THREE.LinearFilter; // Linear filter for minification.
+      texture.magFilter = THREE.LinearFilter; // Linear filter for maximization.
+    
+       // Repeat edge values when sampling outside of texture boundaries.
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.wrapR = THREE.ClampToEdgeWrapping;
+    
+      // Mark texture for update so that the changes take effect.
+      texture.needsUpdate = true;*/
+      
     // Texture
 
     const size = 128;
@@ -89,11 +92,14 @@ function init() {
         out vec3 vDirection;
 
         void main() {
+            // Transform vertex position from object space to camera space.
             vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
 
+            // Calculate the origin of the ray in world space.
             vOrigin = vec3( inverse( modelMatrix ) * vec4( cameraPos, 1.0 ) ).xyz;
             vDirection = position - vOrigin;
 
+            // Transform vertex position to clip position.
             gl_Position = projectionMatrix * mvPosition;
         }
     `;
