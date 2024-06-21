@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title> My First three.js app</title>
+        <style> 
+            body { margin: 0;}
+        </style>
+        <link type="text/css" rel="stylesheet" href="main.css">
+    </head>
+    <body>  
+        <div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> webgpu - volume - cloud
+		</div>
+        <script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/addons/": "./jsm/",
+					"three/nodes": "./jsm/nodes/Nodes.js"
+				}
+			}
+		</script>
+        <script type="module" src="/main.js"></script>
+    </body>
+</html>
