@@ -22,6 +22,7 @@ function init() {
     console.log('Camera initialized.');
     new OrbitControls( camera, renderer.domElement );
     console.log('Orbit Controls initialized.');
+    let canvas = document.createElement('canvas');
 
     /*// Texture
     const headArrayBuffer = fetch('head_256x256x109head_256x256x109.bin').arrayBuffer();
@@ -50,27 +51,44 @@ function init() {
       
     // Texture
 
-    const size = 128;
+    const size = 100;
     const data = new Uint8Array( size * size * size );
 
     let i = 0;
     const scale = 0.05;
     const vector = new THREE.Vector3();
 
-    for ( let z = 0; z < size; z ++ ) {
+    // Define custom radius of sphere.
+    const radius = size / 2;
+    let curr_radius = 0;
 
+    for ( let z = 0; z < size; z ++ ) {
+        let coordn_z = z - (size / 2);
+        curr_radius = Math.sqrt(radius ** 2 - coordn_z ** 2);
+        //console.log("Slice #" + z + ", curr_radius: " + curr_radius + ", coordn_z: " + coordn_z);
+        //let slice = new Uint8Array(size * size);
         for ( let y = 0; y < size; y ++ ) {
 
             for ( let x = 0; x < size; x ++ ) {
-                data[ i ] = 128;
-                i ++;
+                let coordn_x = x - (size / 2);
+                let coordn_y = (size / 2) - y;
+                //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
+                if ((Math.abs((coordn_x) ** 2 + (coordn_y) ** 2) - (curr_radius ** 2)) < 1) {
+                    data[i] = 255;
+                    //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
+                    //slice[i] = 255;
+                }
+                else {
+                    data[i] = 0;
+                    //slice[i] = 0;
+                }
+                i++;
 
             }
 
         }
-
     }
-
+    //console.log(data);
     const texture = new THREE.Data3DTexture( data, size, size, size );
     texture.format = THREE.RedFormat;
     texture.minFilter = THREE.LinearFilter;
@@ -210,7 +228,7 @@ function init() {
 
             }
 
-            color = linearToSRGB( ac );
+            color = ac;
 
             if ( color.a == 0.0 ) discard;
 
