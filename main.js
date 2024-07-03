@@ -85,9 +85,9 @@ function init() {
                     //slice[i] = 255;
                 }
                 else {
-                    data[i] = 0;
-                    data[i+1] = 0;
-                    data[i + 2] = 0;
+                    data[i] = 128;
+                    data[i+1] = 128;
+                    data[i + 2] = 128;
                     data[i + 3] = 0;
                     //slice[i] = 0;
                 }
@@ -227,11 +227,9 @@ function init() {
 
         vec4 BlendUnder(vec4 color, vec4 newColor, float d, float col)
         {
-            color.r +=  newColor.r * (newColor.a) ;
-            color.g +=  newColor.g * (newColor.a) ;
-            color.b +=  newColor.b * (newColor.a) ;
-            color.a += newColor.a ;
-            color.a *= col;
+            color.rgb = ( 1.0 - color.a) * d * col * color.rgb + (newColor.a) * (d) * col * newColor.rgb;
+            //color.a += ( 1.0 - color.a ) * d + newColor.a;
+            color.a += newColor.a;
             return color;
         }
 
@@ -258,7 +256,7 @@ function init() {
                 //if (length(vec3 (255, 255, 255) - samplerColor.rgb) <= 10.0) {break;}
                 samplerColor.a *= .02;
                 color = BlendUnder(color, samplerColor, d, col);
-                if ( color.a >= 0.99 ) break;
+                if ( color.a >= 0.95 ) break;
                 p += rayDir * delta;
 
             }
@@ -276,7 +274,7 @@ function init() {
         uniforms: {
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
-            base: {value: (0, 0, 0, 1)},
+            base: {value: (128, 128, 128, 0)},
             threshold: { value: 0.85 },
             opacity: { value: 0.25 },
             range: { value: 0.5 },
