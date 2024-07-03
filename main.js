@@ -11,6 +11,7 @@ init();
 function init() {
     renderer = new THREE.WebGLRenderer();
     renderer.setPixelRatio( window.devicePixelRatio );
+    renderer.setClearColor(0x808080);
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.setAnimationLoop( animate );
     document.body.appendChild( renderer.domElement );
@@ -51,8 +52,8 @@ function init() {
       
     // Texture
 
-    const size = 100;
-    const data = new Uint8Array( size * size * size );
+    const size = 256;
+    const data = new Float32Array( 4 * (size + 1) * size * size );
 
     let i = 0;
     const scale = 0.05;
@@ -61,11 +62,12 @@ function init() {
     // Define custom radius of sphere.
     const radius = size / 2;
     let curr_radius = 0;
+    const sliceStep = 1;
 
-    for ( let z = 0; z < size; z ++ ) {
+    for ( let z = 0; z <= size ; z += (sliceStep) ) {
         let coordn_z = z - (size / 2);
         curr_radius = Math.sqrt(radius ** 2 - coordn_z ** 2);
-        //console.log("Slice #" + z + ", curr_radius: " + curr_radius + ", coordn_z: " + coordn_z);
+        console.log("Slice #" + z + ", curr_radius: " + curr_radius + ", coordn_z: " + coordn_z);
         //let slice = new Uint8Array(size * size);
         for ( let y = 0; y < size; y ++ ) {
 
@@ -73,27 +75,64 @@ function init() {
                 let coordn_x = x - (size / 2);
                 let coordn_y = (size / 2) - y;
                 //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
-                if ((Math.abs((coordn_x) ** 2 + (coordn_y) ** 2) - (curr_radius ** 2)) < 1) {
-                    data[i] = 255;
+                if ((Math.abs((coordn_x) ** 2 + (coordn_y) ** 2) - (curr_radius ** 2)) < 0.5) {
+                    data[i] = 106;
+                    data[i + 1] = 50;
+                    data[i + 2] = 159;
+                    data[i + 3] = 1;
+                
                     //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
                     //slice[i] = 255;
                 }
                 else {
                     data[i] = 0;
+                    data[i+1] = 0;
+                    data[i + 2] = 0;
+                    data[i + 3] = 0;
                     //slice[i] = 0;
                 }
-                i++;
+                i += 4 ;
+            }
+        }
+        i += (sliceStep - 1) * size * size;
+    }
+    console.log(data);
+
+    /*i = size * size - 1;
+    for ( let z = 1; z < size; z ++) {
+        if (z % sliceStep != 0) {
+            //console.log("averaging two slices for slice #" + z);
+            //let coordn_z = z - (size / 2);
+            console.log("Slice #" + z)
+            let slice = new Uint8Array(size * size);
+            for ( let y = 0; y < size; y ++ ) {
+                for ( let x = 0; x < size; x ++ ) {
+                    let dist_from_lower_slice = z % sliceStep ;
+                    let dist_from_higher_slice = sliceStep - dist_from_lower_slice;
+                    // Just take average of pixel value above and below
+                    data[i] = (Math.max(data[i - dist_from_lower_slice * size * size], data[i + dist_from_higher_slice * size * size])) % 256;
+                    //if (data[i] != 0) {console.log("data @ " + i + "= " + data[i])};
+                    slice[i % (size * size)] = data[i];
+                    //console.log("data[" + i + "] = " + data[i]);
+                    i ++;
+                }
 
             }
-
+        console.log("slice #" + z + "= " + slice);
         }
-    }
+        i += size * size;
+        //break;
+        
+    } 
+        */
+
     //console.log(data);
-    const texture = new THREE.Data3DTexture( data, size, size, size );
-    texture.format = THREE.RedFormat;
+    const texture = new THREE.Data3DTexture( data, size, size, size + 1);
+    texture.format = THREE.RGBAFormat;
+    texture.type = THREE.FloatType;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.unpackAlignment = 1;
+    texture.unpackAlignment = 4;
     texture.needsUpdate = true;
 
     // Material
@@ -110,14 +149,11 @@ function init() {
         out vec3 vDirection;
 
         void main() {
-            // Transform vertex position from object space to camera space.
             vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
 
-            // Calculate the origin of the ray in world space.
             vOrigin = vec3( inverse( modelMatrix ) * vec4( cameraPos, 1.0 ) ).xyz;
             vDirection = position - vOrigin;
 
-            // Transform vertex position to clip position.
             gl_Position = projectionMatrix * mvPosition;
         }
     `;
@@ -134,29 +170,13 @@ function init() {
 
         out vec4 color;
 
-        uniform vec3 base;
         uniform sampler3D map;
-
+        uniform vec3 cameraPos;
         uniform float threshold;
         uniform float range;
         uniform float opacity;
         uniform float steps;
         uniform float frame;
-
-        uint wang_hash(uint seed)
-        {
-                seed = (seed ^ 61u) ^ (seed >> 16u);
-                seed *= 9u;
-                seed = seed ^ (seed >> 4u);
-                seed *= 0x27d4eb2du;
-                seed = seed ^ (seed >> 15u);
-                return seed;
-        }
-
-        float randomFloat(inout uint seed)
-        {
-                return float(wang_hash(seed)) / 4294967296.;
-        }
 
         vec2 hitBox( vec3 orig, vec3 dir ) {
             const vec3 box_min = vec3( - 0.5 );
@@ -172,19 +192,52 @@ function init() {
         }
 
         float sample1( vec3 p ) {
-            return texture( map, p ).r;
+            vec3 color = texture( map, p).rgb;
+            float average = (color.r + color.g + color.b) / 3.0;
+            return average ;
         }
 
         float shading( vec3 coord ) {
-            float step = 0.01;
+            float step = 0.001;
             return sample1( coord + vec3( - step ) ) - sample1( coord + vec3( step ) );
         }
 
-        vec4 linearToSRGB( in vec4 value ) {
-            return vec4( mix( pow( value.rgb, vec3( 0.41666 ) ) * 1.055 - vec3( 0.055 ), value.rgb * 12.92, vec3( lessThanEqual( value.rgb, vec3( 0.0031308 ) ) ) ), value.a );
+        
+        vec4 sample2( vec3 p ) {
+            return texture( map, p );
         }
 
+        #define epsilon .0001
+
+        vec3 normal( vec3 coord ) {
+            if ( coord.x < epsilon ) return vec3( 1.0, 0.0, 0.0 );
+            if ( coord.y < epsilon ) return vec3( 0.0, 1.0, 0.0 );
+            if ( coord.z < epsilon ) return vec3( 0.0, 0.0, 1.0 );
+            if ( coord.x > 1.0 - epsilon ) return vec3( - 1.0, 0.0, 0.0 );
+            if ( coord.y > 1.0 - epsilon ) return vec3( 0.0, - 1.0, 0.0 );
+            if ( coord.z > 1.0 - epsilon ) return vec3( 0.0, 0.0, - 1.0 );
+
+            float step = 0.01;
+            float x = sample1( coord + vec3( - step, 0.0, 0.0 ) ) - sample1( coord + vec3( step, 0.0, 0.0 ) );
+            float y = sample1( coord + vec3( 0.0, - step, 0.0 ) ) - sample1( coord + vec3( 0.0, step, 0.0 ) );
+            float z = sample1( coord + vec3( 0.0, 0.0, - step ) ) - sample1( coord + vec3( 0.0, 0.0, step ) );
+
+            return normalize( vec3( x, y, z ) );
+        }
+
+        vec4 BlendUnder(vec4 color, vec4 newColor, float d, float col)
+        {
+            color.r +=  newColor.r * (newColor.a) ;
+            color.g +=  newColor.g * (newColor.a) ;
+            color.b +=  newColor.b * (newColor.a) ;
+            color.a += newColor.a ;
+            color.a *= col;
+            return color;
+        }
+
+
         void main(){
+
             vec3 rayDir = normalize( vDirection );
             vec2 bounds = hitBox( vOrigin, rayDir );
 
@@ -197,56 +250,39 @@ function init() {
             float delta = min( inc.x, min( inc.y, inc.z ) );
             delta /= steps;
 
-            // Jitter
-
-            // Nice little seed from
-            // https://blog.demofox.org/2020/05/25/casual-shadertoy-path-tracing-1-basic-camera-diffuse-emissive/
-            uint seed = uint( gl_FragCoord.x ) * uint( 1973 ) + uint( gl_FragCoord.y ) * uint( 9277 ) + uint( frame ) * uint( 26699 );
-            vec3 size = vec3( textureSize( map, 0 ) );
-            float randNum = randomFloat( seed ) * 2.0 - 1.0;
-            p += rayDir * randNum * ( 1.0 / size );
-
-            //
-
-            vec4 ac = vec4( base, 0.0 );
-
             for ( float t = bounds.x; t < bounds.y; t += delta ) {
-
-                float d = sample1( p + 0.5 );
-
-                d = smoothstep( threshold - range, threshold + range, d ) * opacity;
-
                 float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.2;
-
-                ac.rgb += ( 1.0 - ac.a ) * d * col;
-
-                ac.a += ( 1.0 - ac.a ) * d;
-
-                if ( ac.a >= 0.95 ) break;
-
+                float d = sample1( p + 0.5 );
+                d = smoothstep( threshold - range, threshold + range, d ) * opacity;
+                vec4 samplerColor = sample2( p + 0.5 );
+                //if (length(vec3 (255, 255, 255) - samplerColor.rgb) <= 10.0) {break;}
+                samplerColor.a *= .02;
+                color = BlendUnder(color, samplerColor, d, col);
+                if ( color.a >= 0.99 ) break;
                 p += rayDir * delta;
 
             }
-
-            color = ac;
+            
 
             if ( color.a == 0.0 ) discard;
 
-            }
-        `;
+        }
+    `;
+
 
     const geometry = new THREE.BoxGeometry( 1, 1, 1 );
     const material = new THREE.RawShaderMaterial( {
         glslVersion: THREE.GLSL3,
         uniforms: {
-            base: { value: new THREE.Color( 0x798aa0 ) },
             map: { value: texture },
             cameraPos: { value: new THREE.Vector3() },
-            threshold: { value: 0.25 },
+            base: {value: (0, 0, 0, 1)},
+            threshold: { value: 0.85 },
             opacity: { value: 0.25 },
-            range: { value: 0 },
-            steps: { value: 100 },
-            frame: { value: 0 }
+            range: { value: 0.5 },
+            steps: { value: 400 },
+            frame: { value: 0 },
+            shadingSamplingStep: {value: 0.001},
         },
         vertexShader,
         fragmentShader,
@@ -260,10 +296,11 @@ function init() {
     //
 
     const parameters = {
-        threshold: 0.25,
-        opacity: 0.25,
-        range: 0.1,
-        steps: 100
+        threshold: 0.75,
+        opacity: 1,
+        range: 0.9,
+        steps: 500,
+        shadingSamplingStep: 0.00001,
     };
 
     function update() {
@@ -271,13 +308,15 @@ function init() {
         material.uniforms.threshold.value = parameters.threshold;
         material.uniforms.opacity.value = parameters.opacity;
         material.uniforms.steps.value = parameters.steps;
+        material.uniforms.shadingSamplingStep.value = parameters.shadingSamplingStep;
 
     }
 
     const gui = new GUI();
     gui.add( parameters, 'threshold', 0, 1, 0.01 ).onChange( update );
     gui.add( parameters, 'opacity', 0, 1, 0.01 ).onChange( update );
-    gui.add( parameters, 'steps', 0, 200, 1 ).onChange( update );
+    gui.add( parameters, 'steps', 0, 1000, 100 ).onChange( update );
+    gui.add( parameters, 'shadingSamplingStep', 0, 0.001, 0.000001 ).onChange( update );
 
     window.addEventListener( 'resize', onWindowResize );
 
