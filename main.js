@@ -76,9 +76,9 @@ function init() {
                 let coordn_y = (size / 2) - y;
                 //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
                 if ((Math.abs((coordn_x) ** 2 + (coordn_y) ** 2) - (curr_radius ** 2)) < 0.5) {
-                    data[i] = 106;
-                    data[i + 1] = 50;
-                    data[i + 2] = 159;
+                    data[i] = 103;
+                    data[i + 1] = 47;
+                    data[i + 2] = 156;
                     data[i + 3] = 1;
                 
                     //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
@@ -177,6 +177,7 @@ function init() {
         uniform float opacity;
         uniform float steps;
         uniform float frame;
+        uniform float shadingSamplingStep;
 
         vec2 hitBox( vec3 orig, vec3 dir ) {
             const vec3 box_min = vec3( - 0.5 );
@@ -198,7 +199,7 @@ function init() {
         }
 
         float shading( vec3 coord ) {
-            float step = 0.001;
+            float step = shadingSamplingStep;
             return sample1( coord + vec3( - step ) ) - sample1( coord + vec3( step ) );
         }
 
@@ -227,9 +228,10 @@ function init() {
 
         vec4 BlendUnder(vec4 color, vec4 newColor, float d, float col)
         {
-            color.rgb = ( 1.0 - color.a) * d * col * color.rgb + (newColor.a) * (d) * col * newColor.rgb;
-            //color.a += ( 1.0 - color.a ) * d + newColor.a;
-            color.a += newColor.a;
+            if (newColor.a > 0.0) {
+                color.rgb = ( 1.0 - color.a) * d * col * color.rgb + (newColor.a) * (d) * col * newColor.rgb;
+                color.a += newColor.a;
+            }
             return color;
         }
 
@@ -249,7 +251,7 @@ function init() {
             delta /= steps;
 
             for ( float t = bounds.x; t < bounds.y; t += delta ) {
-                float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.2;
+                float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.5;
                 float d = sample1( p + 0.5 );
                 d = smoothstep( threshold - range, threshold + range, d ) * opacity;
                 vec4 samplerColor = sample2( p + 0.5 );
@@ -298,7 +300,7 @@ function init() {
         opacity: 1,
         range: 0.9,
         steps: 500,
-        shadingSamplingStep: 0.00001,
+        shadingSamplingStep: 0.01,
     };
 
     function update() {
@@ -310,11 +312,11 @@ function init() {
 
     }
 
-    const gui = new GUI();
+    /*const gui = new GUI();
     gui.add( parameters, 'threshold', 0, 1, 0.01 ).onChange( update );
     gui.add( parameters, 'opacity', 0, 1, 0.01 ).onChange( update );
     gui.add( parameters, 'steps', 0, 1000, 100 ).onChange( update );
-    gui.add( parameters, 'shadingSamplingStep', 0, 0.001, 0.000001 ).onChange( update );
+    gui.add( parameters, 'shadingSamplingStep', 0, 0.01, 0.001).onChange( update );*/
 
     window.addEventListener( 'resize', onWindowResize );
 
