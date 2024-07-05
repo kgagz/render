@@ -76,18 +76,26 @@ function init() {
                 let coordn_y = (size / 2) - y;
                 //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
                 if ((Math.abs((coordn_x) ** 2 + (coordn_y) ** 2) - (curr_radius ** 2)) < 0.5) {
-                    data[i] = 103;
-                    data[i + 1] = 47;
-                    data[i + 2] = 156;
-                    data[i + 3] = 1;
+                    if ( coordn_x > 0 ) {
+                        data[i] = 103 / 255;
+                        data[i + 1] = 47/ 255;
+                        data[i + 2] = 156 / 255;
+                        data[i + 3] = 1;
+                    }
+                    else {
+                        data[i] = 255 / 255;
+                        data[i + 1] =  255 / 255;
+                        data[i + 2] = 0 / 255;
+                        data[i + 3] = 1;
+                    }
                 
                     //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
                     //slice[i] = 255;
                 }
                 else {
-                    data[i] = 128;
-                    data[i+1] = 128;
-                    data[i + 2] = 128;
+                    data[i] =  128 / 255;
+                    data[i+1] = 128 / 255;
+                    data[i + 2] = 128 / 255;
                     data[i + 3] = 0;
                     //slice[i] = 0;
                 }
@@ -225,13 +233,14 @@ function init() {
 
             return normalize( vec3( x, y, z ) );
         }
+        
 
-        vec4 BlendUnder(vec4 color, vec4 newColor, float d, float col)
+        vec4 BlendUnder(vec4 color, vec4 newColor, float col)
         {
-            if (newColor.a > 0.0) {
-                color.rgb = ( 1.0 - color.a) * d * col * color.rgb + (newColor.a) * (d) * col * newColor.rgb;
-                color.a += newColor.a;
-            }
+            
+            color.rgb += ( 1.0 - color.a) * (newColor.a) * newColor.rgb * (col);
+            color.a += (1.0 - color.a) * newColor.a;
+            
             return color;
         }
 
@@ -247,17 +256,29 @@ function init() {
 
             vec3 p = vOrigin + bounds.x * rayDir;
             vec3 inc = 1.0 / abs( rayDir );
-            float delta = min( inc.x, min( inc.y, inc.z ) );
-            delta /= steps;
+            float og_delta = min( inc.x, min( inc.y, inc.z ) );
+            og_delta /= steps;
+            float low_delta = og_delta * 0.01;
+            float delta = og_delta;
 
             for ( float t = bounds.x; t < bounds.y; t += delta ) {
-                float col = shading( p + 0.5 ) * 3.0 + ( ( p.x + p.y ) * 0.25 ) + 0.5;
-                float d = sample1( p + 0.5 );
-                d = smoothstep( threshold - range, threshold + range, d ) * opacity;
+                float col = shading( p + 0.5 ) * 6.0 + ( ( p.x + p.y ) * 0.25 ) + 0.75;
                 vec4 samplerColor = sample2( p + 0.5 );
-                //if (length(vec3 (255, 255, 255) - samplerColor.rgb) <= 10.0) {break;}
                 samplerColor.a *= .02;
-                color = BlendUnder(color, samplerColor, d, col);
+                vec4 oldColor = color;
+                color = BlendUnder(color, samplerColor, col);
+                float diff = length(samplerColor - color);
+                if (diff > 5.) {
+                    // we are changing colors
+                    delta = low_delta;
+                    color.rgb = ( 1.0 - color.a) * (color.a) * color.rgb * (col);
+                }
+                else {  
+                    color.rgb += ( 1.0 - color.a) * (samplerColor.a) * samplerColor.rgb * (col);
+                    color.a += (1.0 - color.a) * samplerColor.a;
+                    delta = og_delta;
+                }
+                //color = texture( map, p + 0.5 )  ;
                 if ( color.a >= 0.95 ) break;
                 p += rayDir * delta;
 
@@ -278,7 +299,7 @@ function init() {
             cameraPos: { value: new THREE.Vector3() },
             base: {value: (128, 128, 128, 0)},
             threshold: { value: 0.85 },
-            opacity: { value: 0.25 },
+            opacity: { value: 1.0 },
             range: { value: 0.5 },
             steps: { value: 400 },
             frame: { value: 0 },
@@ -296,11 +317,11 @@ function init() {
     //
 
     const parameters = {
-        threshold: 0.75,
+        threshold: 1,
         opacity: 1,
-        range: 0.9,
+        range: 1,
         steps: 500,
-        shadingSamplingStep: 0.01,
+        shadingSamplingStep: 0.001,
     };
 
     function update() {
