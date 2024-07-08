@@ -77,16 +77,32 @@ function init() {
                 //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
                 if ((Math.abs((coordn_x) ** 2 + (coordn_y) ** 2) - (curr_radius ** 2)) < 0.5) {
                     if ( coordn_x > 0 ) {
-                        data[i] = 103 / 255;
-                        data[i + 1] = 47/ 255;
-                        data[i + 2] = 156 / 255;
-                        data[i + 3] = 1;
+                        if (coordn_y > 0) {
+                            data[i] = 103 / 255;
+                            data[i + 1] = 47/ 255;
+                            data[i + 2] = 156 / 255;
+                            data[i + 3] = 1;
+                        }
+                        else {
+                            data[i] = 255 / 255;
+                            data[i + 1] =  255 / 255;
+                            data[i + 2] = 0 / 255;
+                            data[i + 3] = 1; 
+                        }
                     }
                     else {
-                        data[i] = 255 / 255;
-                        data[i + 1] =  255 / 255;
-                        data[i + 2] = 0 / 255;
-                        data[i + 3] = 1;
+                        if (coordn_y < 0) {
+                            data[i] = 103 / 255;
+                            data[i + 1] = 47/ 255;
+                            data[i + 2] = 156 / 255;
+                            data[i + 3] = 1;
+                        }
+                        else {
+                            data[i] = 255 / 255;
+                            data[i + 1] =  255 / 255;
+                            data[i + 2] = 0 / 255;
+                            data[i + 3] = 1; 
+                        }
                     }
                 
                     //console.log("coordnx : " + coordn_x + ", coordny: " + coordn_y);
@@ -268,7 +284,7 @@ function init() {
                 vec4 oldColor = color;
                 color = BlendUnder(color, samplerColor, col);
                 float diff = length(samplerColor - color);
-                if (diff > 5.) {
+                if (diff > 2.) {
                     // we are changing colors
                     delta = low_delta;
                     color.rgb = ( 1.0 - color.a) * (color.a) * color.rgb * (col);
@@ -303,7 +319,7 @@ function init() {
             range: { value: 0.5 },
             steps: { value: 400 },
             frame: { value: 0 },
-            shadingSamplingStep: {value: 0.001},
+            shadingSamplingStep: {value: 0.00001},
         },
         vertexShader,
         fragmentShader,
@@ -321,7 +337,7 @@ function init() {
         opacity: 1,
         range: 1,
         steps: 500,
-        shadingSamplingStep: 0.001,
+        shadingSamplingStep: 0.00001,
     };
 
     function update() {
