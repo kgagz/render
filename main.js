@@ -196,6 +196,9 @@ function init() {
 
         uniform sampler3D map;
         uniform vec3 cameraPos;
+        uniform vec3 lightPos;
+        uniform float lightPower;
+        uniform vec3 lightColor;
         uniform float threshold;
         uniform float range;
         uniform float opacity;
@@ -218,8 +221,8 @@ function init() {
 
         float sample1( vec3 p ) {
             vec3 color = texture( map, p).rgb;
-            float average = (color.r + color.g + color.b) / 3.0;
-            return average ;
+            float grayscale = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+            return smoothstep(0.0, 1.0, grayscale);
         }
 
         float shading( vec3 coord ) {
@@ -235,27 +238,52 @@ function init() {
         #define epsilon .0001
 
         vec3 normal( vec3 coord ) {
-            if ( coord.x < epsilon ) return vec3( 1.0, 0.0, 0.0 );
-            if ( coord.y < epsilon ) return vec3( 0.0, 1.0, 0.0 );
-            if ( coord.z < epsilon ) return vec3( 0.0, 0.0, 1.0 );
-            if ( coord.x > 1.0 - epsilon ) return vec3( - 1.0, 0.0, 0.0 );
-            if ( coord.y > 1.0 - epsilon ) return vec3( 0.0, - 1.0, 0.0 );
-            if ( coord.z > 1.0 - epsilon ) return vec3( 0.0, 0.0, - 1.0 );
 
-            float step = 0.01;
-            float x = sample1( coord + vec3( - step, 0.0, 0.0 ) ) - sample1( coord + vec3( step, 0.0, 0.0 ) );
-            float y = sample1( coord + vec3( 0.0, - step, 0.0 ) ) - sample1( coord + vec3( 0.0, step, 0.0 ) );
-            float z = sample1( coord + vec3( 0.0, 0.0, - step ) ) - sample1( coord + vec3( 0.0, 0.0, step ) );
+            float step1 = 0.0001;
+            float step2 = 0.0001;
+            float x = sample1(sample2( coord + vec3( - step1, 0.0, 0.0 ) ).rgb - sample2( coord + vec3( step2, 0.0, 0.0 ) ).rgb);
+            float y = sample1(sample2( coord + vec3( 0.0, - step2, 0.0 ) ).rgb - sample2( coord + vec3( 0.0, step1, 0.0 ) ).rgb);
+            float z = sample1(sample2( coord + vec3( 0.0, 0.0, - step1 ) ).rgb - sample2( coord + vec3( 0.0, 0.0, step2 ) ).rgb);
 
             return normalize( vec3( x, y, z ) );
         }
+
         
 
-        vec4 BlendUnder(vec4 color, vec4 newColor, float col)
+        vec4 BlendUnder(vec4 color, vec4 newColor, vec3 col)
         {
             
-            color.rgb += ( 1.0 - color.a) * (newColor.a) * newColor.rgb * (col);
-            color.a += (1.0 - color.a) * newColor.a;
+            color.rgb = smoothstep(0.0, 1.0, (newColor.rgb + (col)));
+            color.a = newColor.a;
+            
+            return color;
+        }
+
+        vec3 shadeBlinnPhong(vec3 p, vec3 viewDir, vec3 normal, vec3 lightPos, float lightPower, vec3 lightColor) {
+            vec3 diffuseColor = vec3(0.2);
+            vec3 specColor = vec3(1.);
+            float shininess = 8.;
+
+            vec3 lightDir = lightPos - p;
+            float dist = length(lightDir);
+            dist = dist*dist;
+            lightDir = normalize(lightDir);
+            
+            float lambertian = smoothstep(0.0, 1.0, dot(lightDir, normal));
+            float specular = .1;
+            
+            
+            if(lambertian > 0.) {
+                
+                vec3 halfDir = normalize(viewDir + lightDir);
+                float specAngle = max(dot(halfDir, normal), .0);
+                specular = pow(specAngle, shininess);
+            }
+
+            vec3 ambientColor = vec3(0.5);
+            
+            vec3 color = ambientColor * diffuseColor + diffuseColor * lambertian * lightColor * lightPower / dist ;
+                        
             
             return color;
         }
@@ -272,30 +300,17 @@ function init() {
 
             vec3 p = vOrigin + bounds.x * rayDir;
             vec3 inc = 1.0 / abs( rayDir );
-            float og_delta = min( inc.x, min( inc.y, inc.z ) );
-            og_delta /= steps;
-            float low_delta = og_delta * 0.01;
-            float delta = og_delta;
+            float delta = min( inc.x, min( inc.y, inc.z ) );
+            delta /= steps;
 
             for ( float t = bounds.x; t < bounds.y; t += delta ) {
-                float col = shading( p + 0.5 ) * 6.0 + ( ( p.x + p.y ) * 0.25 ) + 0.75;
                 vec4 samplerColor = sample2( p + 0.5 );
-                samplerColor.a *= .02;
-                vec4 oldColor = color;
-                color = BlendUnder(color, samplerColor, col);
-                float diff = length(samplerColor - color);
-                if (diff > 2.) {
-                    // we are changing colors
-                    delta = low_delta;
-                    color.rgb = ( 1.0 - color.a) * (color.a) * color.rgb * (col);
+                if (samplerColor.a == 1.0) {
+                    vec3 col = shadeBlinnPhong(p, vDirection, normal(p), lightPos, lightPower, lightColor);
+                    color = BlendUnder(color, samplerColor, col);
+                    //color = vec4(col, 1.0);
+                    break;
                 }
-                else {  
-                    color.rgb += ( 1.0 - color.a) * (samplerColor.a) * samplerColor.rgb * (col);
-                    color.a += (1.0 - color.a) * samplerColor.a;
-                    delta = og_delta;
-                }
-                //color = texture( map, p + 0.5 )  ;
-                if ( color.a >= 0.95 ) break;
                 p += rayDir * delta;
 
             }
@@ -305,27 +320,28 @@ function init() {
 
         }
     `;
-
-
-    const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    //const material = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Red color with Phong shading
     const material = new THREE.RawShaderMaterial( {
         glslVersion: THREE.GLSL3,
         uniforms: {
             map: { value: texture },
-            cameraPos: { value: new THREE.Vector3() },
-            base: {value: (128, 128, 128, 0)},
+            cameraPos: { value: camera.position},
+            lightPos: {value: new THREE.Vector3(0, 0, 1)},
+            lightPower: {value: .004},              
+            lightColor: {value: new THREE.Color(255, 255, 255)},
             threshold: { value: 0.85 },
             opacity: { value: 1.0 },
-            range: { value: 0.5 },
-            steps: { value: 400 },
+            range: { value: 0.1 },
+            steps: { value: 800 },
             frame: { value: 0 },
-            shadingSamplingStep: {value: 0.00001},
+            shadingSamplingStep: {value: 0.0000001},
         },
         vertexShader,
         fragmentShader,
         side: THREE.BackSide,
         transparent: true
-    } );
+    } ); 
 
     mesh = new THREE.Mesh( geometry, material );
     scene.add( mesh );
